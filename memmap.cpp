@@ -2049,6 +2049,20 @@ void CMemory::ParseSNESHeader (uint8 *RomHeader)
 	}
 }
 
+// A conversion that expands a cartridge's graphics ahead of time outgrows every
+// layout a LoROM image can otherwise be served by. Plain LoROM starts mirroring
+// above about 4 MB and the extended LoROM layouts reach 6 MB, and no retail
+// cartridge ever shipped larger than 6 MB either. So a LoROM image past that, in
+// a whole number of 64 KB banks and within the 12 MB the window can address, is
+// one of these conversions, whichever coprocessor it was built to do without.
+//
+// Recognising them by shape rather than by name means a new conversion needs no
+// change here.
+static bool8 is_expanded_conversion_size (uint32 size)
+{
+	return (size > 0x600000) && (size <= 0xC00000) && ((size & 0xFFFF) == 0);
+}
+
 void CMemory::InitROM (void)
 {
 	Settings.SuperFX = FALSE;
@@ -2248,11 +2262,17 @@ void CMemory::InitROM (void)
 	Map_Initialize();
 	CalculatedChecksum = 0;
 
-	const bool8	WindowedLoROM = (CalculatedSize >= 0x800000) &&
-			(Settings.SDD1 ||
-			 strncmp(ROMName, "STREET FIGHTER ALPHA2", 21) == 0 ||
-			 strncmp(ROMName, "STREET FIGHTER ZERO2", 20) == 0 ||
-			 strncmp(ROMName, "Star Ocean", 10) == 0);
+	// The title list is not a second opinion, it is the fallback for the
+	// conversions already in circulation. Those kept the header of the cartridge
+	// they were made from, so nothing the header says can identify them and the
+	// size test above cannot reach one whose map mode scores as HiROM.
+	const bool8	WindowedLoROM =
+			(!HiROM && is_expanded_conversion_size(CalculatedSize)) ||
+			((CalculatedSize >= 0x800000) &&
+			 (Settings.SDD1 ||
+			  strncmp(ROMName, "STREET FIGHTER ALPHA2", 21) == 0 ||
+			  strncmp(ROMName, "STREET FIGHTER ZERO2", 20) == 0 ||
+			  strncmp(ROMName, "Star Ocean", 10) == 0));
 
 	if (WindowedLoROM)
 	{
