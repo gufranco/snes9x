@@ -4143,6 +4143,21 @@ void CMemory::Map_WindowedLoROMMap (void)
 		}
 	}
 
+	// Neither S-DD1 conversion carried save RAM, so this map never provided any and
+	// every bank above became ROM, including the two LoROM save RAM windows. Dungeon
+	// Master has 32 KB of battery-backed save RAM and cannot do without it.
+	//
+	// The size guard is what keeps this from disturbing the conversions that came
+	// first. At 0x80 banks or fewer, window bank $F0 needs image bank 0x80 + 0x30,
+	// which does not exist, so the loop above already skipped $F0 to $FF and save RAM
+	// costs nothing there. Larger images do map those window banks, and they are the
+	// ones this leaves alone.
+	//
+	// Banks $70 to $7D are ROM in the loop above, so a conversion that declares save
+	// RAM has to keep its data out of them.
+	if (SRAMSize > 0 && banks <= 0x80)
+		map_LoROMSRAM();
+
 	map_WRAM();
 	map_WriteProtectROM();
 }
